@@ -1,0 +1,9 @@
+{
+  "name": "creator-os",
+  "private": true,
+  "scripts": {
+    "editor": "cd apps/editor && npm run dev",
+    "server": "cd apps/server && bun run src/index.ts",
+    "dev": "start cmd /k \"cd apps/server && bun run src/index.ts\" && cd apps/editor && npm run dev"
+  }
+}

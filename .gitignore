@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-tauri/
+*.db
+.env
+.wrangler/
+apps/editor/node_modules/
+apps/server/node_modules/
