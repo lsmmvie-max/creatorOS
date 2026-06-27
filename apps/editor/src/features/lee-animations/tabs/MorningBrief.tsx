@@ -15,6 +15,7 @@ interface EditingBlock {
   durationInFrames?: number
   description?: string
   imagePrompt?: string
+  narration?: string
 }
 
 interface Manifest {
@@ -27,6 +28,11 @@ interface Manifest {
 
 function newId() {
   return Math.random().toString(36).slice(2, 10)
+}
+
+function blockPreview(block: EditingBlock, index: number): string {
+  const text = block.narration ?? block.description ?? block.imagePrompt ?? `Block ${index + 1}`
+  return text.length > 60 ? text.slice(0, 57) + '…' : text
 }
 
 export function MorningBrief() {
@@ -76,12 +82,18 @@ export function MorningBrief() {
   function handleAutoPlace() {
     if (!manifest?.editingScript?.length) return
     setPlacing(true)
-    try {
-      const { tracks, items, fps, addItem } = useTimelineStore.getState()
-      const currentFrame = usePlaybackStore.getState().currentFrame
 
-      for (const block of manifest.editingScript) {
-        const from = block.timestamp != null ? Math.round(block.timestamp * fps) : currentFrame
+    console.log('[Lee] Auto-Place: starting, blocks =', manifest.editingScript.length)
+
+    try {
+      // Re-read fps once — it doesn't change during placement
+      const fps = useTimelineStore.getState().fps
+
+      for (const [i, block] of manifest.editingScript.entries()) {
+        // Re-read tracks+items on every iteration so overlap detection sees previously added items
+        const { tracks, items, addItem } = useTimelineStore.getState()
+
+        const from = block.timestamp != null ? Math.round(block.timestamp * fps) : 0
         const durationInFrames = block.durationInFrames ?? Math.round(5 * fps)
 
         const targetTrack = findCompatibleTrackForItemType({
@@ -90,26 +102,43 @@ export function MorningBrief() {
           itemType: 'image',
           preferredTrackId: undefined,
         })
-        if (!targetTrack) continue
+
+        if (!targetTrack) {
+          console.warn('[Lee] Auto-Place: no compatible track for block', i)
+          continue
+        }
 
         const finalPos =
           findNearestAvailableSpace(from, durationInFrames, targetTrack.id, items) ?? from
 
+        const label = block.description ?? block.imagePrompt ?? `Block ${i + 1}`
         const item: ImageItem = {
           id: newId(),
           type: 'image',
           trackId: targetTrack.id,
           from: finalPos,
           durationInFrames,
-          label: block.description ?? block.imagePrompt ?? 'Asset',
+          label,
           mediaId: undefined as unknown as string,
           src: '',
         }
+
+        console.log('[Lee] Auto-Place: adding item', { label, from: finalPos, track: targetTrack.id })
         addItem(item)
       }
+
+      console.log('[Lee] Auto-Place: done')
+    } catch (e) {
+      console.error('[Lee] Auto-Place error:', e)
     } finally {
       setPlacing(false)
     }
+  }
+
+  function handleBlockClick(block: EditingBlock) {
+    if (block.timestamp == null) return
+    const fps = useTimelineStore.getState().fps
+    usePlaybackStore.getState().setCurrentFrame(Math.round(block.timestamp * fps))
   }
 
   if (loading) {
@@ -140,37 +169,45 @@ export function MorningBrief() {
 
   return (
     <div className="p-4 space-y-4">
+      {/* Episode header */}
       <div>
         <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
           Episode
         </div>
-        <div className="text-sm font-semibold text-foreground">{manifest.episodeTitle}</div>
+        <div className="text-sm font-semibold text-foreground leading-snug">
+          {manifest.episodeTitle}
+        </div>
         {manifest.concept && (
-          <div className="text-xs text-muted-foreground mt-1">{manifest.concept}</div>
+          <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{manifest.concept}</div>
         )}
       </div>
 
+      {/* Editing blocks */}
       {manifest.editingScript && manifest.editingScript.length > 0 && (
         <div>
           <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
             Editing Blocks ({manifest.editingScript.length})
           </div>
-          <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+          <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
             {manifest.editingScript.map((block, i) => (
-              <div
+              <button
                 key={i}
-                className="text-[11px] text-foreground/80 bg-secondary/30 rounded px-2 py-1 border border-border"
+                onClick={() => handleBlockClick(block)}
+                className="w-full text-left text-[11px] text-foreground/80 bg-secondary/30 hover:bg-secondary/60 rounded px-2 py-1.5 border border-border hover:border-primary/40 transition-colors"
               >
                 {block.timestamp != null && (
-                  <span className="text-muted-foreground mr-1.5">{block.timestamp}s</span>
+                  <span className="text-primary font-medium mr-1.5 tabular-nums">
+                    {block.timestamp}s
+                  </span>
                 )}
-                {block.description ?? block.imagePrompt ?? `Block ${i + 1}`}
-              </div>
+                <span className="text-foreground/70">{blockPreview(block, i)}</span>
+              </button>
             ))}
           </div>
         </div>
       )}
 
+      {/* Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button
           size="sm"

@@ -21,16 +21,16 @@ export function LeeAnimationsPanel() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Tab bar */}
-      <div className="flex border-b border-border flex-shrink-0 overflow-x-auto">
+      {/* Tab bar — matches FreeCut's panel header height and underline-indicator style */}
+      <div className="flex border-b border-border flex-shrink-0">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={cn(
-              'px-3 py-2 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors flex-shrink-0',
+              'px-3 py-1.5 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors duration-150 flex-shrink-0 relative',
               tab === id
-                ? 'text-foreground border-b-2 border-primary -mb-px'
+                ? 'text-foreground after:absolute after:bottom-0 after:inset-x-0 after:h-[2px] after:bg-primary'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
