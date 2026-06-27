@@ -17,6 +17,8 @@ export type EditorSidebarTab =
   | 'transitions'
   | 'transcript'
   | 'ai'
+  | 'lee'
+  | 'ai-chat'
 export type EditorClipInspectorTab = 'video' | 'audio' | 'effects'
 
 /** The slice of editor UI state that a workspace controls. */
@@ -83,6 +85,8 @@ const SIDEBAR_TABS: readonly EditorSidebarTab[] = [
   'transitions',
   'transcript',
   'ai',
+  'lee',
+  'ai-chat',
 ]
 const CLIP_INSPECTOR_TABS: readonly EditorClipInspectorTab[] = ['video', 'audio', 'effects']
 

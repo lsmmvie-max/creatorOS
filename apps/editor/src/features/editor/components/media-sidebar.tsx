@@ -20,6 +20,8 @@ import {
   Pen,
   Captions,
   WandSparkles,
+  Clapperboard,
+  MessageSquare,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Button } from '@/components/ui/button'
@@ -54,6 +56,12 @@ import { EffectThumbnail, useGpuEffectPreviewData } from '@/features/editor/deps
 import { createLogger } from '@/shared/logging/logger'
 import { useSettingsStore } from '@/features/editor/deps/settings'
 const LazyAiPanel = lazy(() => import('./ai-tab').then((m) => ({ default: m.AiTab })))
+const LazyLeePanel = lazy(() =>
+  import('@/features/lee-animations').then((m) => ({ default: m.LeeAnimationsPanel })),
+)
+const LazyAiChatPanel = lazy(() =>
+  import('@/features/ai-chat/AiChatPanel').then((m) => ({ default: m.AiChatPanel })),
+)
 import {
   TEXT_STYLE_PRESETS,
   type TextStylePresetLayout,
@@ -295,6 +303,16 @@ export const MediaSidebar = memo(function MediaSidebar() {
   const [aiTabActivated, setAiTabActivated] = useState(activeTab === 'ai')
   useEffect(() => {
     if (activeTab === 'ai') setAiTabActivated(true)
+  }, [activeTab])
+
+  const [leeTabActivated, setLeeTabActivated] = useState(activeTab === 'lee')
+  useEffect(() => {
+    if (activeTab === 'lee') setLeeTabActivated(true)
+  }, [activeTab])
+
+  const [aiChatTabActivated, setAiChatTabActivated] = useState(activeTab === 'ai-chat')
+  useEffect(() => {
+    if (activeTab === 'ai-chat') setAiChatTabActivated(true)
   }, [activeTab])
 
   // The collapsed panel stays mounted (clipped to 0 width, see NOTE below), so
@@ -560,6 +578,8 @@ export const MediaSidebar = memo(function MediaSidebar() {
     { id: 'transitions' as const, icon: Blend, label: t('editor.mediaSidebar.transitions') },
     { id: 'transcript' as const, icon: Captions, label: t('transcript.tabLabel') },
     { id: 'ai' as const, icon: WandSparkles, label: t('editor.mediaSidebar.ai') },
+    { id: 'lee' as const, icon: Clapperboard, label: 'Lee Animations' },
+    { id: 'ai-chat' as const, icon: MessageSquare, label: 'AI Chat' },
   ]
 
   const shouldSuppressGeneratedItemClick = useCallback(() => {
@@ -1175,6 +1195,28 @@ export const MediaSidebar = memo(function MediaSidebar() {
                 {aiTabActivated && (
                   <Suspense fallback={null}>
                     <LazyAiPanel />
+                  </Suspense>
+                )}
+              </div>
+
+              {/* Lee Animations Tab */}
+              <div
+                className={`min-h-0 flex-1 overflow-hidden ${activeTab === 'lee' ? 'block' : 'hidden'}`}
+              >
+                {leeTabActivated && (
+                  <Suspense fallback={null}>
+                    <LazyLeePanel />
+                  </Suspense>
+                )}
+              </div>
+
+              {/* AI Chat Tab */}
+              <div
+                className={`min-h-0 flex-1 overflow-hidden ${activeTab === 'ai-chat' ? 'block' : 'hidden'}`}
+              >
+                {aiChatTabActivated && (
+                  <Suspense fallback={null}>
+                    <LazyAiChatPanel />
                   </Suspense>
                 )}
               </div>
