@@ -67,45 +67,22 @@ function applyTimelineCommand(cmd: TimelineCommand): string {
 
   if (cmd.command === 'remove_clip') {
     if (!cmd.clipId) return 'remove_clip requires clipId'
-    // TODO: map to FreeCut timeline action — useTimelineStore.getState().removeItem(cmd.clipId)
-    // Found: store has addItem/addEffect but removeItem is not directly exported via timeline-contract.ts.
-    // The timeline store's full actions are in @/features/timeline/store — use executeTimelineCommand
-    // or check useTimelineStore.getState() for removeItem at runtime.
-    const state = store as Record<string, unknown>
-    if (typeof state.removeItem === 'function') {
-      ;(state.removeItem as (id: string) => void)(cmd.clipId)
-      return `Removed clip ${cmd.clipId}`
-    }
-    return 'remove_clip: removeItem not available in this build'
+    store.removeItems([cmd.clipId])
+    return `Removed clip ${cmd.clipId}`
   }
 
   if (cmd.command === 'move_clip') {
     if (!cmd.clipId || cmd.offsetFrames == null) return 'move_clip requires clipId and offsetFrames'
-    // TODO: map to FreeCut timeline action — store has no direct moveItem.
-    // Found: items are moved via drag (useTimelineDrag hook) or via store.updateItem.
-    const state = store as Record<string, unknown>
-    if (typeof state.updateItem === 'function') {
-      const item = store.items.find((i) => i.id === cmd.clipId)
-      if (!item) return `Clip ${cmd.clipId} not found`
-      ;(state.updateItem as (id: string, patch: object) => void)(cmd.clipId, {
-        from: item.from + (cmd.offsetFrames ?? 0),
-      })
-      return `Moved clip ${cmd.clipId} by ${cmd.offsetFrames} frames`
-    }
-    return 'move_clip: updateItem not available in this build'
+    const item = store.items.find((i) => i.id === cmd.clipId)
+    if (!item) return `Clip ${cmd.clipId} not found`
+    store.moveItem(cmd.clipId, item.from + cmd.offsetFrames)
+    return `Moved clip ${cmd.clipId} by ${cmd.offsetFrames} frames`
   }
 
   if (cmd.command === 'clear_timeline') {
-    // TODO: map to FreeCut timeline action — no single clearTimeline action found.
-    // Found: store has items[] array; clearing requires removing each item individually.
-    const state = store as Record<string, unknown>
-    if (typeof state.removeItem === 'function') {
-      const remove = state.removeItem as (id: string) => void
-      store.items.forEach((i) => remove(i.id))
-      useSelectionStore.getState().clearSelection()
-      return 'Cleared timeline'
-    }
-    return 'clear_timeline: removeItem not available in this build'
+    store.clearTimeline()
+    useSelectionStore.getState().clearSelection()
+    return 'Cleared timeline'
   }
 
   return `Unknown command: ${cmd.command}`

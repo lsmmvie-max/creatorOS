@@ -159,7 +159,10 @@ export function AssetForge() {
       const r = await fetch(`${API}/brief/today`)
       if (!r.ok) return
       const manifest = await r.json()
-      const prompts: string[] = manifest.imagePrompts ?? []
+      const rawPrompts: Array<{ prompt?: string } | string> = manifest.imagePrompts ?? []
+      const prompts: string[] = rawPrompts
+        .map((p) => (typeof p === 'string' ? p : (p.prompt ?? '')))
+        .filter(Boolean)
       if (prompts.length === 0) return
       setBatchItems(
         prompts.map((p, i) => ({
@@ -343,7 +346,7 @@ export function AssetForge() {
                 />
                 <div className="min-w-0 flex-1">
                   <span className="text-muted-foreground mr-1 font-medium">#{i + 1}</span>
-                  <span className="text-foreground/70 break-words">{item.prompt.slice(0, 70)}</span>
+                  <span className="text-foreground/70 break-words">{String(item.prompt).slice(0, 70)}</span>
                 </div>
                 {item.resultUrl && (
                   <button
