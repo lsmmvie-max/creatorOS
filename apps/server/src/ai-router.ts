@@ -3,9 +3,25 @@ import { getKey, markUsed, markExhausted, getAllKeys, getDailyUsage } from "./ke
 
 const router = Router();
 
+const OMNIROUTE_URL = "http://localhost:20128/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const OLLAMA_URL = "http://localhost:11434/api/chat";
+
+async function tryOmniRoute(body: ChatRequest): Promise<globalThis.Response | null> {
+  try {
+    const res = await fetch(OMNIROUTE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer omniroute" },
+      body: JSON.stringify({ ...body, model: body.model ?? "auto" }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (res.ok) return res;
+    return null;
+  } catch {
+    return null; // OmniRoute not running, use fallback
+  }
+}
 
 interface ChatRequest {
   model?: string;
@@ -71,6 +87,14 @@ router.post("/chat", async (req: Request, res: Response) => {
 
   if (!body.messages || !Array.isArray(body.messages)) {
     res.status(400).json({ error: "messages array is required" });
+    return;
+  }
+
+  // Try OmniRoute first (free local AI gateway)
+  const omniRes = await tryOmniRoute(body);
+  if (omniRes) {
+    const data = await omniRes.json();
+    res.json(data);
     return;
   }
 
