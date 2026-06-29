@@ -70,7 +70,7 @@ export function AssetForge() {
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState<'LIGHT' | 'INTENSE'>('LIGHT')
   const [generating, setGenerating] = useState(false)
-  const [result, setResult] = useState<{ imageUrl?: string; error?: string } | null>(null)
+  const [result, setResult] = useState<{ imageUrl?: string; error?: string; provider?: string } | null>(null)
   const [assets, setAssets] = useState<AssetFile[]>([])
   const [assetsError, setAssetsError] = useState<string | null>(null)
 
@@ -113,7 +113,10 @@ export function AssetForge() {
       } else {
         // url from server is a relative path like /forge/image/2026-06-22/scene.png
         const relUrl: string = data.url ?? data.imageUrl ?? ''
-        setResult({ imageUrl: relUrl ? `${API}${relUrl}` : undefined })
+        setResult({
+          imageUrl: relUrl ? `${API}${relUrl}` : undefined,
+          provider: data.provider as string | undefined,
+        })
         void loadAssets()
       }
     } catch {
@@ -293,6 +296,11 @@ export function AssetForge() {
                 alt="Generated"
                 className="w-full rounded border border-border aspect-video"
               />
+              {result.provider && (
+                <p className="text-[9px] text-muted-foreground/60 text-right">
+                  via <span className="font-medium text-muted-foreground">{result.provider}</span>
+                </p>
+              )}
               <Button
                 size="sm"
                 className="w-full"

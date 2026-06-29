@@ -6,3 +6,5 @@ dist-tauri/
 .wrangler/
 apps/editor/node_modules/
 apps/server/node_modules/
+apps/image-router/server/node_modules/
+apps/image-router/.env

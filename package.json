@@ -6,9 +6,10 @@
   },
   "scripts": {
     "setup": "npm install --prefix apps/editor && cd apps/server && bun install",
-    "start": "concurrently --names \"OMNI,SERVER,EDITOR\" --prefix-colors \"cyan,green,magenta\" \"omniroute start\" \"cd apps/server && bun run src/index.ts\" \"cd apps/editor && npm run dev\"",
-    "start:no-omni": "concurrently --names \"SERVER,EDITOR\" --prefix-colors \"green,magenta\" \"cd apps/server && bun run src/index.ts\" \"cd apps/editor && npm run dev\"",
+    "start": "concurrently --names \"IMAGE,SERVER,EDITOR\" --prefix-colors \"yellow,green,magenta\" \"cd apps/image-router/server && bun run dev\" \"cd apps/server && bun run src/index.ts\" \"cd apps/editor && npm run dev\"",
+    "start:no-image": "concurrently --names \"SERVER,EDITOR\" --prefix-colors \"green,magenta\" \"cd apps/server && bun run src/index.ts\" \"cd apps/editor && npm run dev\"",
     "server": "cd apps/server && bun run src/index.ts",
-    "editor": "cd apps/editor && npm run dev"
+    "editor": "cd apps/editor && npm run dev",
+    "image-router": "cd apps/image-router/server && bun run dev"
   }
 }
