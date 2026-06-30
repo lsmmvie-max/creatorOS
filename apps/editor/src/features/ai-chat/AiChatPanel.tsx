@@ -31,22 +31,28 @@ interface TimelineCommand {
   offsetFrames?: number
 }
 
+function coalesce(...vals: unknown[]): unknown {
+  return vals.find((v) => v !== null && v !== undefined)
+}
+
 function normalizeCommand(raw: Record<string, unknown>): TimelineCommand {
-  // Flatten nested params if the LLM returns { command, params: {...} }
   const p = (typeof raw.params === 'object' && raw.params !== null ? raw.params : {}) as Record<
     string,
     unknown
   >
   return {
     command: raw.command as TimelineCommand['command'],
-    clipId: (raw.clipId ?? raw.id ?? p.id ?? p.clipId) as string | undefined,
-    src: (raw.src ?? p.src) as string | undefined,
-    label: (raw.label ?? raw.name ?? p.name ?? p.label) as string | undefined,
-    from: (raw.from ?? raw.startTime ?? p.startTime ?? p.from) as number | undefined,
-    durationInFrames: (raw.durationInFrames ?? raw.duration ?? p.duration ?? p.durationInFrames) as
-      | number
-      | undefined,
-    offsetFrames: (raw.offsetFrames ?? p.offsetFrames) as number | undefined,
+    clipId: coalesce(raw.clipId, raw.id, p.id, p.clipId) as string | undefined,
+    src: coalesce(raw.src, p.src) as string | undefined,
+    label: coalesce(raw.label, raw.name, p.name, p.label) as string | undefined,
+    from: coalesce(raw.from, raw.startTime, p.startTime, p.from) as number | undefined,
+    durationInFrames: coalesce(
+      raw.durationInFrames,
+      raw.duration,
+      p.duration,
+      p.durationInFrames,
+    ) as number | undefined,
+    offsetFrames: coalesce(raw.offsetFrames, p.offsetFrames) as number | undefined,
   }
 }
 
