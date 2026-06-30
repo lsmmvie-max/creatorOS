@@ -227,18 +227,16 @@ router.post("/timeline-command", async (req: Request, res: Response) => {
   const systemPrompt = `You are a timeline editing assistant. The user has a video timeline with these clips:
 ${JSON.stringify(timelineState?.clips ?? [], null, 2)}
 
-The user will give you a natural language instruction. Respond with ONLY a JSON object (no markdown, no explanation) with this structure:
-{ "command": "<command>", "params": { ... }, "description": "<what you did>" }
+The user will give you a natural language instruction. Respond with ONLY a flat JSON object (no markdown, no explanation, no nested "params" field).
 
-Available commands:
-- "add_clip": params: { src: string, name: string, startTime: number, duration: number, track: number }
-- "remove_clip": params: { id: string }
-- "move_clip": params: { id: string, startTime: number }
-- "trim_clip": params: { id: string, duration: number }
-- "clear_timeline": params: {}
-- "none": params: {} (when the request is not a timeline action, just answer in description)
+Available commands — respond with exactly one of these shapes:
+- Add a clip:      { "command": "add_clip", "label": "<name>", "src": "", "from": <startFrame>, "durationInFrames": <frames> }
+- Remove a clip:   { "command": "remove_clip", "clipId": "<id>" }
+- Move a clip:     { "command": "move_clip", "clipId": "<id>", "offsetFrames": <signed frame delta> }
+- Clear timeline:  { "command": "clear_timeline" }
+- Not a timeline action: { "command": "none" }
 
-Always respond with valid JSON only.`;
+Use frame numbers (assume 30 fps). Always respond with valid JSON only.`;
 
   const chatBody: ChatRequest = {
     messages: [

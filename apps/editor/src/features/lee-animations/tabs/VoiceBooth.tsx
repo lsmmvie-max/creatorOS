@@ -40,17 +40,22 @@ export function VoiceBooth() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
+  const [takesError, setTakesError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const loadTakes = useCallback(async () => {
     try {
       const r = await fetch(`${API}/voice/takes`)
-      if (!r.ok) return
+      if (!r.ok) {
+        setTakesError('Could not load takes from server')
+        return
+      }
       const data: TakesResponse = await r.json()
       setTakes(data.takes ?? [])
       setSelectedId(data.selected ?? null)
+      setTakesError(null)
     } catch {
-      // server offline — silent
+      setTakesError('Server offline — start the automation server')
     }
   }, [])
 
@@ -148,24 +153,16 @@ export function VoiceBooth() {
               Stop
             </Button>
           ) : (
-            <Button
-              size="sm"
-              onClick={() => void startRecording()}
-              disabled={uploading}
-            >
+            <Button size="sm" onClick={() => void startRecording()} disabled={uploading}>
               <Mic className="w-3.5 h-3.5 mr-1.5" />
               {uploading ? 'Saving…' : 'Record'}
             </Button>
           )}
           {recording && (
-            <span className="text-xs text-destructive font-medium animate-pulse">
-              ● REC
-            </span>
+            <span className="text-xs text-destructive font-medium animate-pulse">● REC</span>
           )}
         </div>
-        {recordStatus && (
-          <p className="text-xs mt-1.5 text-muted-foreground">{recordStatus}</p>
-        )}
+        {recordStatus && <p className="text-xs mt-1.5 text-muted-foreground">{recordStatus}</p>}
       </div>
 
       {/* Takes list */}
@@ -185,7 +182,8 @@ export function VoiceBooth() {
           </button>
         </div>
 
-        {takes.length === 0 ? (
+        {takesError && <p className="text-xs text-destructive/80 mb-1">{takesError}</p>}
+        {takes.length === 0 && !takesError ? (
           <p className="text-xs text-muted-foreground">No takes recorded today</p>
         ) : (
           <div className="space-y-1">
@@ -245,9 +243,7 @@ export function VoiceBooth() {
                       {selectingId === take.id ? '…' : 'Use'}
                     </button>
                   )}
-                  {isBest && (
-                    <Check className="w-3 h-3 text-primary flex-shrink-0" />
-                  )}
+                  {isBest && <Check className="w-3 h-3 text-primary flex-shrink-0" />}
                 </div>
               )
             })}

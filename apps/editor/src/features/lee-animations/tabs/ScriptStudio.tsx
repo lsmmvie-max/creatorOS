@@ -18,9 +18,15 @@ export function ScriptStudio() {
   useEffect(() => {
     setLoading(true)
     fetch(`${API}/brief/script`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status:${r.status}`))))
       .then(setData)
-      .catch(() => setError('No script available'))
+      .catch((e: Error) => {
+        if (e.message.includes('Failed to fetch') || e.message.includes('ECONNREFUSED')) {
+          setError('Server offline — start the automation server')
+        } else {
+          setError('No script available for today')
+        }
+      })
       .finally(() => setLoading(false))
   }, [])
 

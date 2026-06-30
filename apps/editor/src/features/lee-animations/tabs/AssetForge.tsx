@@ -32,15 +32,7 @@ interface BatchItem {
   resultUrl?: string
 }
 
-function ImageThumbnail({
-  src,
-  alt,
-  className,
-}: {
-  src: string
-  alt: string
-  className?: string
-}) {
+function ImageThumbnail({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false)
 
   if (failed) {
@@ -70,7 +62,11 @@ export function AssetForge() {
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState<'LIGHT' | 'INTENSE'>('LIGHT')
   const [generating, setGenerating] = useState(false)
-  const [result, setResult] = useState<{ imageUrl?: string; error?: string; provider?: string } | null>(null)
+  const [result, setResult] = useState<{
+    imageUrl?: string
+    error?: string
+    provider?: string
+  } | null>(null)
   const [assets, setAssets] = useState<AssetFile[]>([])
   const [assetsError, setAssetsError] = useState<string | null>(null)
 
@@ -187,7 +183,7 @@ export function AssetForge() {
     for (let i = 0; i < batchItems.length; i++) {
       if (batchAbortRef.current) break
       const item = batchItems[i]
-      if (item.status === 'done') continue
+      if (!item || item.status === 'done') continue
 
       setBatchItems((prev) =>
         prev.map((b) => (b.id === item.id ? { ...b, status: 'generating' } : b)),
@@ -204,9 +200,7 @@ export function AssetForge() {
           const relUrl: string = data.url ?? data.imageUrl ?? ''
           const fullUrl = relUrl ? `${API}${relUrl}` : ''
           setBatchItems((prev) =>
-            prev.map((b) =>
-              b.id === item.id ? { ...b, status: 'done', resultUrl: fullUrl } : b,
-            ),
+            prev.map((b) => (b.id === item.id ? { ...b, status: 'done', resultUrl: fullUrl } : b)),
           )
         } else {
           setBatchItems((prev) =>
@@ -214,9 +208,7 @@ export function AssetForge() {
           )
         }
       } catch {
-        setBatchItems((prev) =>
-          prev.map((b) => (b.id === item.id ? { ...b, status: 'error' } : b)),
-        )
+        setBatchItems((prev) => prev.map((b) => (b.id === item.id ? { ...b, status: 'error' } : b)))
       }
 
       // Reload asset library so newly generated images appear
@@ -350,11 +342,16 @@ export function AssetForge() {
                 className="flex items-start gap-2 text-[10px] bg-secondary/20 rounded px-2 py-1.5 border border-border"
               >
                 <div
-                  className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', statusDot[item.status])}
+                  className={cn(
+                    'w-2 h-2 rounded-full flex-shrink-0 mt-0.5',
+                    statusDot[item.status],
+                  )}
                 />
                 <div className="min-w-0 flex-1">
                   <span className="text-muted-foreground mr-1 font-medium">#{i + 1}</span>
-                  <span className="text-foreground/70 break-words">{String(item.prompt).slice(0, 70)}</span>
+                  <span className="text-foreground/70 break-words">
+                    {String(item.prompt).slice(0, 70)}
+                  </span>
                 </div>
                 {item.resultUrl && (
                   <button
@@ -379,9 +376,7 @@ export function AssetForge() {
             <span className="ml-1 normal-case text-muted-foreground/60">({assets.length})</span>
           )}
         </div>
-        {assetsError && (
-          <p className="text-xs text-muted-foreground/60 mb-1">{assetsError}</p>
-        )}
+        {assetsError && <p className="text-xs text-muted-foreground/60 mb-1">{assetsError}</p>}
         {assets.length === 0 && !assetsError && (
           <p className="text-xs text-muted-foreground">No assets yet</p>
         )}
@@ -397,11 +392,7 @@ export function AssetForge() {
                 title={asset.filename}
               >
                 <div className="relative aspect-video overflow-hidden">
-                  <ImageThumbnail
-                    src={fullUrl}
-                    alt={asset.filename}
-                    className="w-full h-full"
-                  />
+                  <ImageThumbnail src={fullUrl} alt={asset.filename} className="w-full h-full" />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                     <span className="text-white text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                       Add

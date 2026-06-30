@@ -31,6 +31,25 @@ interface TimelineCommand {
   offsetFrames?: number
 }
 
+function normalizeCommand(raw: Record<string, unknown>): TimelineCommand {
+  // Flatten nested params if the LLM returns { command, params: {...} }
+  const p = (typeof raw.params === 'object' && raw.params !== null ? raw.params : {}) as Record<
+    string,
+    unknown
+  >
+  return {
+    command: raw.command as TimelineCommand['command'],
+    clipId: (raw.clipId ?? raw.id ?? p.id ?? p.clipId) as string | undefined,
+    src: (raw.src ?? p.src) as string | undefined,
+    label: (raw.label ?? raw.name ?? p.name ?? p.label) as string | undefined,
+    from: (raw.from ?? raw.startTime ?? p.startTime ?? p.from) as number | undefined,
+    durationInFrames: (raw.durationInFrames ?? raw.duration ?? p.duration ?? p.durationInFrames) as
+      | number
+      | undefined,
+    offsetFrames: (raw.offsetFrames ?? p.offsetFrames) as number | undefined,
+  }
+}
+
 function applyTimelineCommand(cmd: TimelineCommand): string {
   const store = useTimelineStore.getState()
 
@@ -129,9 +148,9 @@ export function AiChatPanel() {
       // Handle timeline command
       if (cmdRes.status === 'fulfilled' && cmdRes.value.ok) {
         try {
-          const cmdData = await cmdRes.value.json()
-          if (cmdData?.command) {
-            const result = applyTimelineCommand(cmdData as TimelineCommand)
+          const cmdData = (await cmdRes.value.json()) as Record<string, unknown>
+          if (cmdData?.command && cmdData.command !== 'none') {
+            const result = applyTimelineCommand(normalizeCommand(cmdData))
             systemMessages.push({ role: 'system', content: `Timeline: ${result}` })
           }
         } catch {
@@ -144,10 +163,7 @@ export function AiChatPanel() {
       if (chatRes.status === 'fulfilled' && chatRes.value.ok) {
         const chatData = await chatRes.value.json()
         assistantContent =
-          chatData.choices?.[0]?.message?.content ??
-          chatData.content ??
-          chatData.text ??
-          ''
+          chatData.choices?.[0]?.message?.content ?? chatData.content ?? chatData.text ?? ''
       } else {
         assistantContent = 'Server offline — start the automation server on port 3737'
       }
@@ -158,10 +174,7 @@ export function AiChatPanel() {
         { role: 'assistant', content: assistantContent },
       ])
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Error connecting to server' },
-      ])
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Error connecting to server' }])
     } finally {
       setSending(false)
       inputRef.current?.focus()

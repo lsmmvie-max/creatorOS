@@ -123,7 +123,11 @@ export function MorningBrief() {
           src: '',
         }
 
-        console.log('[Lee] Auto-Place: adding item', { label, from: finalPos, track: targetTrack.id })
+        console.log('[Lee] Auto-Place: adding item', {
+          label,
+          from: finalPos,
+          track: targetTrack.id,
+        })
         addItem(item)
       }
 
@@ -138,7 +142,16 @@ export function MorningBrief() {
   function handleBlockClick(block: EditingBlock) {
     if (block.timestamp == null) return
     const fps = useTimelineStore.getState().fps
-    usePlaybackStore.getState().setCurrentFrame(Math.round(block.timestamp * fps))
+    const frame = Math.round(block.timestamp * fps)
+    console.log(
+      '[Lee] handleBlockClick fired — timestamp:',
+      block.timestamp,
+      'fps:',
+      fps,
+      'frame:',
+      frame,
+    )
+    usePlaybackStore.getState().setCurrentFrame(frame)
   }
 
   if (loading) {
@@ -178,7 +191,9 @@ export function MorningBrief() {
           {manifest.episodeTitle}
         </div>
         {manifest.concept && (
-          <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{manifest.concept}</div>
+          <div className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            {manifest.concept}
+          </div>
         )}
       </div>
 
