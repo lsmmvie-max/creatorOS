@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { useTimelineStore } from '@/features/editor/deps/timeline-store'
 import {
   findCompatibleTrackForItemType,
   findNearestAvailableSpace,
-} from '@/features/editor/deps/timeline-utils'
+  useTimelineStore,
+} from '../deps/timeline'
 import { usePlaybackStore } from '@/shared/state/playback'
 import type { ImageItem } from '@/types/timeline'
 

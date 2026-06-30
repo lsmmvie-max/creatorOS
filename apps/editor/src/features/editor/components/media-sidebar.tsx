@@ -57,10 +57,10 @@ import { createLogger } from '@/shared/logging/logger'
 import { useSettingsStore } from '@/features/editor/deps/settings'
 const LazyAiPanel = lazy(() => import('./ai-tab').then((m) => ({ default: m.AiTab })))
 const LazyLeePanel = lazy(() =>
-  import('@/features/lee-animations').then((m) => ({ default: m.LeeAnimationsPanel })),
+  import('@/features/editor/deps/external-panels').then((m) => ({ default: m.LeeAnimationsPanel })),
 )
 const LazyAiChatPanel = lazy(() =>
-  import('@/features/ai-chat/AiChatPanel').then((m) => ({ default: m.AiChatPanel })),
+  import('@/features/editor/deps/external-panels').then((m) => ({ default: m.AiChatPanel })),
 )
 import {
   TEXT_STYLE_PRESETS,

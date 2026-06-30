@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useTimelineStore } from '@/features/editor/deps/timeline-store'
 import {
   findCompatibleTrackForItemType,
   findNearestAvailableSpace,
-} from '@/features/editor/deps/timeline-utils'
+  useTimelineStore,
+} from './deps/timeline'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSelectionStore } from '@/shared/state/selection'
 import type { ImageItem } from '@/types/timeline'

@@ -1,24 +1,30 @@
 # Pre-push hook: mirrors CI "Quality Checks" (fast subset)
 # Skip with: git push --no-verify
 
+# Resolve editor root and vp binary with absolute paths
+SCRIPT_DIR="$(dirname "$0")"
+EDITOR_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+VP="$EDITOR_ROOT/node_modules/.bin/vp"
+cd "$EDITOR_ROOT"
+
 set -e
 
 echo "Running quality checks before push..."
 
 echo "  [1/7] check:boundaries"
-vp run check:boundaries --silent
+"$VP" run check:boundaries --silent
 
 echo "  [2/7] check:deps-contracts"
-vp run check:deps-contracts --silent
+"$VP" run check:deps-contracts --silent
 
 echo "  [3/7] check:legacy-lib-imports"
-vp run check:legacy-lib-imports --silent
+"$VP" run check:legacy-lib-imports --silent
 
 echo "  [4/7] check:deps-wrapper-health"
-vp run check:deps-wrapper-health --silent
+"$VP" run check:deps-wrapper-health --silent
 
 echo "  [5/7] check:changed-health"
-vp run check:changed-health
+"$VP" run check:changed-health
 
 echo "  [6/7] check:edge-budgets"
 EDGE_REPORT=$(mktemp)
@@ -27,6 +33,6 @@ node scripts/report-feature-edges.mjs --json > "$EDGE_REPORT"
 node scripts/check-feature-edge-budgets.mjs --input "$EDGE_REPORT"
 
 echo "  [7/7] check"
-vp run check --silent
+"$VP" run check --silent
 
 echo "All quality checks passed."

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { useTimelineStore } from '@/features/editor/deps/timeline-store'
 import {
   findCompatibleTrackForItemType,
   findNearestAvailableSpace,
-} from '@/features/editor/deps/timeline-utils'
+  useTimelineStore,
+} from '../deps/timeline'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { cn } from '@/shared/ui/cn'
 import type { ImageItem } from '@/types/timeline'
