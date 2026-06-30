@@ -73,6 +73,7 @@ export function AssetForge() {
   // Batch queue (FIX 6)
   const [batchItems, setBatchItems] = useState<BatchItem[]>([])
   const [batchRunning, setBatchRunning] = useState(false)
+  const [batchError, setBatchError] = useState<string | null>(null)
   const batchAbortRef = useRef(false)
 
   async function loadAssets() {
@@ -154,15 +155,22 @@ export function AssetForge() {
 
   // Batch queue: load prompts from today's episode
   async function handleLoadFromEpisode() {
+    setBatchError(null)
     try {
       const r = await fetch(`${API}/brief/today`)
-      if (!r.ok) return
+      if (!r.ok) {
+        setBatchError('No episode found — run the Overnight Brain first')
+        return
+      }
       const manifest = await r.json()
       const rawPrompts: Array<{ prompt?: string } | string> = manifest.imagePrompts ?? []
       const prompts: string[] = rawPrompts
         .map((p) => (typeof p === 'string' ? p : (p.prompt ?? '')))
         .filter(Boolean)
-      if (prompts.length === 0) return
+      if (prompts.length === 0) {
+        setBatchError('Episode has no image prompts')
+        return
+      }
       setBatchItems(
         prompts.map((p, i) => ({
           id: `batch-${i}-${Date.now()}`,
@@ -171,7 +179,7 @@ export function AssetForge() {
         })),
       )
     } catch {
-      // server offline — silently skip
+      setBatchError('Server offline — start the automation server')
     }
   }
 
@@ -334,6 +342,11 @@ export function AssetForge() {
           </div>
         </div>
 
+        {batchError && (
+          <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1.5 mb-2">
+            {batchError}
+          </p>
+        )}
         {batchItems.length > 0 && (
           <div className="space-y-1 max-h-36 overflow-y-auto pr-1 mb-3">
             {batchItems.map((item, i) => (

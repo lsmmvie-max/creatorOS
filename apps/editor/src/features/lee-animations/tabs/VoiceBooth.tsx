@@ -41,6 +41,7 @@ export function VoiceBooth() {
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
   const [takesError, setTakesError] = useState<string | null>(null)
+  const [selectError, setSelectError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const loadTakes = useCallback(async () => {
@@ -127,13 +128,16 @@ export function VoiceBooth() {
 
   async function handleSelect(take: Take) {
     setSelectingId(take.id)
+    setSelectError(null)
     try {
       const r = await fetch(`${API}/voice/takes/${take.id}/select`, { method: 'PUT' })
       if (r.ok) {
         setSelectedId(take.id)
+      } else {
+        setSelectError('Could not mark take as best')
       }
     } catch {
-      // silent
+      setSelectError('Server offline')
     } finally {
       setSelectingId(null)
     }
@@ -183,6 +187,7 @@ export function VoiceBooth() {
         </div>
 
         {takesError && <p className="text-xs text-destructive/80 mb-1">{takesError}</p>}
+        {selectError && <p className="text-xs text-destructive/80 mb-1">{selectError}</p>}
         {takes.length === 0 && !takesError ? (
           <p className="text-xs text-muted-foreground">No takes recorded today</p>
         ) : (
