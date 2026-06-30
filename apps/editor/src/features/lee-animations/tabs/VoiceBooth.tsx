@@ -131,11 +131,11 @@ export function VoiceBooth() {
     setSelectError(null)
     try {
       const r = await fetch(`${API}/voice/takes/${take.id}/select`, { method: 'PUT' })
-      if (r.ok) {
-        setSelectedId(take.id)
-      } else {
+      if (!r.ok) {
         setSelectError('Could not mark take as best')
+        return
       }
+      setSelectedId(take.id)
     } catch {
       setSelectError('Server offline')
     } finally {
