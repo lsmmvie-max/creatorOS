@@ -16,7 +16,12 @@ import voiceRouter from "./voice-router.js";
 import forgeRouter from "./forge-router.js";
 import { startMcpServer } from "./mcp-server.js";
 import { getDailyUsage, reloadKeys, type Provider } from "./key-manager.js";
-import { runOvernightBrain } from "./overnight-brain.js";
+import {
+  runOvernightBrain,
+  getEffectiveSystemPrompt,
+  LEE_ANIMATIONS_SYSTEM,
+  SYSTEM_PROMPT_OVERRIDE_PATH,
+} from "./overnight-brain.js";
 
 runBootstrap();
 
@@ -321,24 +326,111 @@ app.get("/settings/test-key", async (req, res) => {
   }
 });
 
-app.get("/settings/profile", (_req, res) => {
+function readChannelProfile(): Record<string, unknown> {
+  if (!fs.existsSync(PROFILE_PATH)) {
+    return { channelName: "", mainCharacterName: "", contentStyle: "Storytelling", targetAudienceAge: "", language: "English" };
+  }
+  return JSON.parse(fs.readFileSync(PROFILE_PATH, "utf-8"));
+}
+
+function getProfileHandler(_req: express.Request, res: express.Response) {
   try {
-    if (!fs.existsSync(PROFILE_PATH)) {
-      res.json({ channelName: "", mainCharacterName: "", contentStyle: "Storytelling", targetAudienceAge: "", language: "Portuguese" });
-      return;
-    }
-    res.json(JSON.parse(fs.readFileSync(PROFILE_PATH, "utf-8")));
+    res.json(readChannelProfile());
   } catch {
     res.status(500).json({ error: "Failed to read profile" });
   }
-});
+}
 
-app.put("/settings/profile", (req, res) => {
+function putProfileHandler(req: express.Request, res: express.Response) {
   try {
     fs.writeFileSync(PROFILE_PATH, JSON.stringify(req.body, null, 2), "utf-8");
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Failed to save profile" });
+  }
+}
+
+// /settings/channel-profile is the same channel-profile.json as /settings/profile —
+// kept as two routes since both names are referenced by different panels.
+app.get("/settings/profile", getProfileHandler);
+app.put("/settings/profile", putProfileHandler);
+app.get("/settings/channel-profile", getProfileHandler);
+app.put("/settings/channel-profile", putProfileHandler);
+
+app.get("/settings/system-prompt", (_req, res) => {
+  res.json({ value: getEffectiveSystemPrompt(), default: LEE_ANIMATIONS_SYSTEM });
+});
+
+app.put("/settings/system-prompt", (req, res) => {
+  try {
+    const value = String((req.body as { value?: string }).value ?? "");
+    fs.writeFileSync(SYSTEM_PROMPT_OVERRIDE_PATH, value, "utf-8");
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Failed to save system prompt" });
+  }
+});
+
+function getKeysSummary(): Record<string, { configured: boolean; count: number }> {
+  const summary: Record<string, { configured: boolean; count: number }> = {
+    openrouter: { configured: false, count: 0 },
+    groq: { configured: false, count: 0 },
+    fal: { configured: false, count: 0 },
+    stability: { configured: false, count: 0 },
+    cloudflare: { configured: false, count: 0 },
+    youtube: { configured: false, count: 0 },
+  };
+  try {
+    const raw = JSON.parse(fs.readFileSync(KEYS_PATH, "utf-8"));
+    for (const provider of ["openrouter", "groq", "fal", "stability"] as const) {
+      const arr: string[] = Array.isArray(raw[provider]) ? raw[provider] : [];
+      summary[provider] = { configured: arr.length > 0, count: arr.length };
+    }
+    const cfTokens: string[] = Array.isArray(raw.cloudflare?.tokens) ? raw.cloudflare.tokens : [];
+    summary.cloudflare = {
+      configured: Boolean(raw.cloudflare?.accountId) && cfTokens.length > 0,
+      count: cfTokens.length,
+    };
+    const yt = typeof raw.youtube === "string" ? raw.youtube : "";
+    summary.youtube = { configured: Boolean(yt), count: yt ? 1 : 0 };
+  } catch {
+    // keys.json missing or corrupt — return the all-false summary
+  }
+  return summary;
+}
+
+function getImageProviderStatus(): Record<string, { configured: boolean }> {
+  const status = {
+    pollinations: { configured: true }, // keyless — always available
+    huggingface: { configured: false },
+    cloudflare: { configured: false },
+  };
+  try {
+    const envPath = path.join(import.meta.dirname, "..", "..", "image-router", ".env");
+    const raw = fs.readFileSync(envPath, "utf-8");
+    const vars: Record<string, string> = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const match = line.match(/^([A-Z_]+)=(.*)$/);
+      if (match) vars[match[1]] = match[2].trim();
+    }
+    status.huggingface.configured = Boolean(vars.HF_API_KEYS);
+    status.cloudflare.configured = Boolean(vars.CF_ACCOUNT_ID) && Boolean(vars.CF_API_TOKEN);
+  } catch {
+    // .env missing — huggingface/cloudflare stay unconfigured, pollinations needs no key
+  }
+  return status;
+}
+
+app.get("/settings/all", (_req, res) => {
+  try {
+    res.json({
+      keys: getKeysSummary(),
+      channelProfile: readChannelProfile(),
+      imageProvider: getImageProviderStatus(),
+      systemPrompt: getEffectiveSystemPrompt(),
+    });
+  } catch {
+    res.status(500).json({ error: "Failed to load settings" });
   }
 });
 

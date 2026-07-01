@@ -40,7 +40,7 @@ const DEFAULT_PROFILE = {
   mainCharacterName: "",
   contentStyle: "Storytelling",
   targetAudienceAge: "",
-  language: "Portuguese",
+  language: "English",
   storyStylePrompt: "",
 };
 

@@ -5,15 +5,19 @@ import { AssetForge } from './tabs/AssetForge'
 import { ScriptStudio } from './tabs/ScriptStudio'
 import { VoiceBooth } from './tabs/VoiceBooth'
 import { Packaging } from './tabs/Packaging'
+import { StoryQueue } from './tabs/StoryQueue'
+import { Settings } from './tabs/Settings'
 
-type Tab = 'brief' | 'script' | 'voice' | 'forge' | 'package'
+type Tab = 'brief' | 'queue' | 'script' | 'voice' | 'forge' | 'package' | 'settings'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'brief', label: 'Brief' },
+  { id: 'queue', label: 'Queue' },
   { id: 'script', label: 'Script' },
   { id: 'voice', label: 'Voice' },
   { id: 'forge', label: 'Forge' },
   { id: 'package', label: 'Package' },
+  { id: 'settings', label: 'Settings' },
 ]
 
 export function LeeAnimationsPanel() {
@@ -42,10 +46,12 @@ export function LeeAnimationsPanel() {
       {/* Tab content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {tab === 'brief' && <MorningBrief />}
+        {tab === 'queue' && <StoryQueue />}
         {tab === 'script' && <ScriptStudio />}
         {tab === 'voice' && <VoiceBooth />}
         {tab === 'forge' && <AssetForge />}
         {tab === 'package' && <Packaging />}
+        {tab === 'settings' && <Settings />}
       </div>
     </div>
   )

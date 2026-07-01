@@ -3,6 +3,7 @@ import path from "path";
 
 const QUEUE_DIR = "C:\\YouStudio\\queue";
 const STORY_QUEUE_PATH = "C:\\YouStudio\\story-queue.json";
+const SYSTEM_PROMPT_OVERRIDE_PATH = "C:\\YouStudio\\system-prompt-override.txt";
 const AI_URL = "http://localhost:3737/ai/chat";
 
 interface EditingBlock {
@@ -99,14 +100,29 @@ function getChannelProfile(): { storyStylePrompt?: string } | null {
 const LEE_ANIMATIONS_SYSTEM = `You are a creative writer for "Lee Animations", a YouTube storytelling channel.
 
 Style guide:
-- Protagonist is ALWAYS a Portuguese teenager (male, ~16 years old)
-- Stories involve school situations, family drama, friend groups, crushes, embarrassing moments
+- Protagonist is a European teenager (male, ~16-18 years old), broadly relatable across Western/EU school culture rather than tied to one specific country
+- Stories involve high school situations, family drama, friend groups, first relationships, breakups, embarrassing moments, canon-event teen experiences
+- Romance and relationship content is welcome and can be a strong emotional throughline (crushes, first girlfriend/boyfriend, breakups, heartbreak) but stays non-explicit — emotional and comedic, not sexual
 - Comedic timing is essential — build tension then release with humor
 - Target duration: 10-15 minutes when read aloud (~2000-2500 words)
-- Voice: conversational, like a teen telling a story to friends. Use "bro", casual language, mild exaggeration
+- Voice: conversational, like a teen telling a story to friends. Casual language, mild exaggeration
 - Structure: hook (first 30 seconds must grab attention), rising action, climax, resolution with a twist or lesson
-- Cultural references: Portuguese school system, pastéis de nata, family Sunday lunches, strict parents, neighborhood dynamics
-- NO profanity, NO violence, keep it family-friendly but relatable to teens`;
+- NO profanity, NO sexual content, NO violence — keep it relatable and YouTube-monetization-safe`;
+
+// overnight-brain checks C:\YouStudio\system-prompt-override.txt before falling
+// back to the hardcoded constant above, so the Settings panel can change
+// content direction without a redeploy.
+export function getEffectiveSystemPrompt(): string {
+  try {
+    const override = fs.readFileSync(SYSTEM_PROMPT_OVERRIDE_PATH, "utf-8").trim();
+    if (override) return override;
+  } catch {
+    // no override file — use the default
+  }
+  return LEE_ANIMATIONS_SYSTEM;
+}
+
+export { LEE_ANIMATIONS_SYSTEM, SYSTEM_PROMPT_OVERRIDE_PATH };
 
 export async function runOvernightBrain(
   onProgress?: (step: string, detail: string) => void
@@ -130,7 +146,7 @@ export async function runOvernightBrain(
   let concept = getNextStoryIdea();
 
   const profile = getChannelProfile();
-  let systemPrompt = LEE_ANIMATIONS_SYSTEM;
+  let systemPrompt = getEffectiveSystemPrompt();
   if (profile?.storyStylePrompt) {
     systemPrompt += `\n\nAdditional story style guidance from the creator:\n${profile.storyStylePrompt}`;
   }
