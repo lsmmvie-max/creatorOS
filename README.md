@@ -10,6 +10,32 @@ FreeCut-based creator studio with Lee Animations automation — built for Leandr
 | **Automation Server** (`apps/server`) | 3737 | Lee Animations AI: morning brief, script, voice, asset forge, packaging |
 | **OmniMediaRoute** (`apps/image-router`) | 8765 | Free image generation — Pollinations → HuggingFace → Cloudflare fallback chain |
 
+## Image Generation — OmniMediaRoute
+
+CreatorOS ships with a bundled OmniMediaRoute service at `apps/image-router` (port 8765). This is a self-hosted, mostly-free image generation router with this provider chain:
+1. **Pollinations AI** — free, unlimited, no API key required (Tier 1, always tried first)
+2. **HuggingFace Inference API** — free tier with API key (Tier 2 fallback)
+3. **Cloudflare Workers AI** — requires Cloudflare account (Tier 3 fallback)
+
+### Using the standalone OmniMediaRoute repo instead
+If you maintain OmniMediaRoute as its own repo (https://github.com/lsmmvie-max/omni-media-route) and want to use that version instead of the bundled copy in `apps/image-router`:
+
+1. Clone it separately: `git clone https://github.com/lsmmvie-max/omni-media-route.git`
+2. Copy your `.env` config from `apps/image-router/.env` into the standalone repo's `server/.env`
+3. Run it on port 8765: `cd omni-media-route/server && bun run dev`
+4. CreatorOS's automation server (`apps/server`) auto-detects any service running on `localhost:8765` — no config changes needed. It will use the standalone version instead of the bundled one automatically.
+5. Optional: delete or ignore `apps/image-router` in this repo if you're maintaining OmniMediaRoute independently, to avoid running two copies
+
+### Configuration
+Add your provider keys in `apps/image-router/.env` (or the standalone repo's `.env`):
+```
+PORT=8765
+HF_API_KEYS=hf_yourkey1,hf_yourkey2
+CF_ACCOUNT_ID=your_cloudflare_account_id
+CF_API_TOKEN=your_cloudflare_token
+```
+Pollinations requires no keys and works out of the box.
+
 ## Requirements
 
 - **Node.js 20+** — for the FreeCut editor ([nodejs.org](https://nodejs.org))
