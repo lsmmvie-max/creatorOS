@@ -3,8 +3,12 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
 
 const RECORDINGS_DIR = "C:\\YouStudio\\recordings";
+const QUEUE_DIR = "C:\\YouStudio\\queue";
 
 function getTodayDir(): string {
   const d = new Date();
@@ -12,9 +16,24 @@ function getTodayDir(): string {
   return path.join(RECORDINGS_DIR, date);
 }
 
+function parseBlockIndex(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
+function getBlockDir(dayDir: string, blockIndex: number): string {
+  return path.join(dayDir, `block-${blockIndex}`);
+}
+
+// Multer requires the "blockIndex" field to be appended to the FormData
+// BEFORE the "audio" file field — multer parses multipart fields in stream
+// order, so anything after the file is not yet in req.body when destination()
+// and filename() run.
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = getTodayDir();
+  destination: (req, _file, cb) => {
+    const blockIndex = parseBlockIndex((req.body as Record<string, unknown>)?.blockIndex);
+    const dir = getBlockDir(getTodayDir(), blockIndex);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -33,17 +52,20 @@ router.post("/upload", upload.single("audio"), (req: Request, res: Response) => 
     res.status(400).json({ error: "No audio file provided" });
     return;
   }
+  const blockIndex = parseBlockIndex((req.body as Record<string, unknown>)?.blockIndex);
   res.json({
     id: path.basename(file.filename, ".webm"),
     filename: file.filename,
     path: file.path,
+    blockIndex,
   });
 });
 
-router.get("/takes", (_req: Request, res: Response) => {
-  const dir = getTodayDir();
+router.get("/takes", (req: Request, res: Response) => {
+  const blockIndex = parseBlockIndex(req.query.blockIndex);
+  const dir = getBlockDir(getTodayDir(), blockIndex);
   if (!fs.existsSync(dir)) {
-    res.json({ takes: [], selected: null });
+    res.json({ takes: [], selected: null, blockIndex });
     return;
   }
 
@@ -71,11 +93,12 @@ router.get("/takes", (_req: Request, res: Response) => {
     } catch {}
   }
 
-  res.json({ takes: files, selected });
+  res.json({ takes: files, selected, blockIndex });
 });
 
 router.delete("/takes/:id", (req: Request, res: Response) => {
-  const dir = getTodayDir();
+  const blockIndex = parseBlockIndex(req.query.blockIndex);
+  const dir = getBlockDir(getTodayDir(), blockIndex);
   const fp = path.join(dir, `${req.params.id}.webm`);
   if (!fs.existsSync(fp)) {
     res.status(404).json({ error: "Take not found" });
@@ -86,7 +109,8 @@ router.delete("/takes/:id", (req: Request, res: Response) => {
 });
 
 router.put("/takes/:id/select", (req: Request, res: Response) => {
-  const dir = getTodayDir();
+  const blockIndex = parseBlockIndex(req.query.blockIndex);
+  const dir = getBlockDir(getTodayDir(), blockIndex);
   const fp = path.join(dir, `${req.params.id}.webm`);
   if (!fs.existsSync(fp)) {
     res.status(404).json({ error: "Take not found" });
@@ -98,11 +122,165 @@ router.put("/takes/:id/select", (req: Request, res: Response) => {
     JSON.stringify({ id: req.params.id, selectedAt: new Date().toISOString() }, null, 2),
     "utf-8"
   );
-  res.json({ ok: true, id: req.params.id });
+  res.json({ ok: true, id: req.params.id, blockIndex });
 });
 
-router.post("/transcribe", (_req: Request, res: Response) => {
-  const dir = getTodayDir();
+router.get("/blocks/status", (_req: Request, res: Response) => {
+  const dayDir = getTodayDir();
+  if (!fs.existsSync(dayDir)) {
+    res.json([]);
+    return;
+  }
+
+  const blockDirs = fs
+    .readdirSync(dayDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && /^block-\d+$/.test(d.name))
+    .map((d) => ({ name: d.name, index: Number(d.name.slice("block-".length)) }))
+    .sort((a, b) => a.index - b.index);
+
+  const status = blockDirs.map(({ name, index }) => {
+    const dir = path.join(dayDir, name);
+    const takeCount = fs.readdirSync(dir).filter((f) => f.endsWith(".webm")).length;
+    const hasSelectedTake = fs.existsSync(path.join(dir, "selected-take.json"));
+    return { blockIndex: index, hasSelectedTake, takeCount };
+  });
+
+  res.json(status);
+});
+
+function getEditingScriptLength(): number {
+  if (!fs.existsSync(QUEUE_DIR)) return 0;
+  const dirs = fs
+    .readdirSync(QUEUE_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && /^\d{4}-\d{2}-\d{2}/.test(d.name))
+    .map((d) => d.name)
+    .sort()
+    .reverse();
+
+  for (const dir of dirs) {
+    const manifestPath = path.join(QUEUE_DIR, dir, "manifest.json");
+    if (fs.existsSync(manifestPath)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        return Array.isArray(manifest.editingScript) ? manifest.editingScript.length : 0;
+      } catch {
+        return 0;
+      }
+    }
+  }
+  return 0;
+}
+
+async function isBinaryOnPath(bin: string): Promise<boolean> {
+  try {
+    await execFileAsync(bin, ["-version"], { timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+router.get("/episode-audio", async (_req: Request, res: Response) => {
+  const hasFfmpeg = await isBinaryOnPath("ffmpeg");
+  const hasFfprobe = await isBinaryOnPath("ffprobe");
+  if (!hasFfmpeg || !hasFfprobe) {
+    res.status(503).json({
+      error: "ffmpeg is required to build the episode audio but was not found on PATH",
+      detail:
+        "Install ffmpeg (which bundles ffprobe) and ensure both are available on PATH, e.g. via https://ffmpeg.org/download.html or `winget install ffmpeg`.",
+    });
+    return;
+  }
+
+  const totalBlocks = getEditingScriptLength();
+  if (totalBlocks === 0) {
+    res.status(400).json({ error: "No editing script found — run the overnight brain pipeline first" });
+    return;
+  }
+
+  const dayDir = getTodayDir();
+  const takeFiles: string[] = [];
+  const missing: number[] = [];
+
+  for (let i = 0; i < totalBlocks; i++) {
+    const blockDir = getBlockDir(dayDir, i);
+    const selPath = path.join(blockDir, "selected-take.json");
+    if (!fs.existsSync(selPath)) {
+      missing.push(i);
+      continue;
+    }
+    try {
+      const takeId = JSON.parse(fs.readFileSync(selPath, "utf-8")).id;
+      const takePath = path.join(blockDir, `${takeId}.webm`);
+      if (!fs.existsSync(takePath)) {
+        missing.push(i);
+        continue;
+      }
+      takeFiles.push(takePath);
+    } catch {
+      missing.push(i);
+    }
+  }
+
+  if (missing.length > 0) {
+    res.status(400).json({
+      error: "Not all blocks have a selected take yet",
+      missingBlocks: missing,
+      totalBlocks,
+    });
+    return;
+  }
+
+  try {
+    const durations: number[] = [];
+    for (const file of takeFiles) {
+      const { stdout } = await execFileAsync(
+        "ffprobe",
+        ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file],
+        { timeout: 30_000 }
+      );
+      durations.push(parseFloat(stdout.trim()) || 0);
+    }
+
+    const outputPath = path.join(dayDir, "episode-final.mp3");
+    const ffmpegArgs: string[] = [];
+    for (const file of takeFiles) {
+      ffmpegArgs.push("-i", file);
+    }
+    const filterInputs = takeFiles.map((_, i) => `[${i}:a]`).join("");
+    ffmpegArgs.push(
+      "-filter_complex",
+      `${filterInputs}concat=n=${takeFiles.length}:v=0:a=1[outa]`,
+      "-map",
+      "[outa]",
+      "-y",
+      outputPath
+    );
+
+    await execFileAsync("ffmpeg", ffmpegArgs, { timeout: 300_000 });
+
+    let cumulative = 0;
+    const boundaries = durations.map((d, i) => {
+      const start = cumulative;
+      cumulative += d;
+      return { blockIndex: i, start, end: cumulative };
+    });
+
+    res.json({
+      ok: true,
+      path: outputPath,
+      totalDuration: cumulative,
+      boundaries,
+    });
+  } catch (err) {
+    console.error("[episode-audio] ffmpeg concat failed:", err);
+    res.status(500).json({ error: "Failed to build episode audio", detail: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.post("/transcribe", (req: Request, res: Response) => {
+  const blockIndex = parseBlockIndex(req.query.blockIndex);
+  const dir = getBlockDir(getTodayDir(), blockIndex);
   const selPath = path.join(dir, "selected-take.json");
 
   if (!fs.existsSync(selPath)) {
@@ -123,6 +301,14 @@ router.post("/transcribe", (_req: Request, res: Response) => {
     res.status(404).json({ error: "Selected take file not found" });
     return;
   }
+
+  // TODO(transcription-swap): whisper.cpp requires a hardcoded native binary + model
+  // download, which is brittle to set up per-machine. The planned swap is to a JS/WASM
+  // Whisper implementation via `@xenova/transformers` (runs in-process, no external binary,
+  // downloads its own model on first use). As of this writing that package is NOT installed
+  // in apps/server — installing it requires running `bun add @xenova/transformers` in
+  // apps/server, which needs approval before running. Until then this endpoint keeps the
+  // existing whisper.cpp-or-mock behavior unchanged below.
 
   // Try whisper.cpp first
   const whisperPaths = [
@@ -177,8 +363,9 @@ router.post("/transcribe", (_req: Request, res: Response) => {
   );
 });
 
-router.get("/transcript", (_req: Request, res: Response) => {
-  const dir = getTodayDir();
+router.get("/transcript", (req: Request, res: Response) => {
+  const blockIndex = parseBlockIndex(req.query.blockIndex);
+  const dir = getBlockDir(getTodayDir(), blockIndex);
   const selPath = path.join(dir, "selected-take.json");
 
   if (!fs.existsSync(selPath)) {
@@ -223,7 +410,8 @@ router.get("/transcript", (_req: Request, res: Response) => {
 });
 
 router.get("/audio/:filename", (req: Request, res: Response) => {
-  const dir = getTodayDir();
+  const blockIndex = parseBlockIndex(req.query.blockIndex);
+  const dir = getBlockDir(getTodayDir(), blockIndex);
   const filename = String(req.params.filename);
   const fp = path.join(dir, filename);
   if (!fs.existsSync(fp)) {

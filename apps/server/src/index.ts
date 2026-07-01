@@ -1,3 +1,11 @@
+// bootstrap.js must be the first local import: it creates C:\YouStudio and its
+// subfolders as a side effect at module-load time. key-manager.js (imported by
+// ai-router.js/image-router.js below) opens a bun:sqlite database at its own
+// module top-level, which throws if C:\YouStudio doesn't exist yet — and ES
+// module imports fully evaluate before any of this file's own statements run,
+// so calling runBootstrap() later (even before app.listen()) would be too late
+// to prevent that crash on a fresh machine.
+import { runBootstrap } from "./bootstrap.js";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
@@ -9,6 +17,8 @@ import forgeRouter from "./forge-router.js";
 import { startMcpServer } from "./mcp-server.js";
 import { getDailyUsage, reloadKeys, type Provider } from "./key-manager.js";
 import { runOvernightBrain } from "./overnight-brain.js";
+
+runBootstrap();
 
 const QUEUE_DIR = "C:\\YouStudio\\queue";
 
