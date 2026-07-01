@@ -24,7 +24,7 @@ echo "  [4/7] check:deps-wrapper-health"
 "$VP" run check:deps-wrapper-health --silent
 
 echo "  [5/7] check:changed-health"
-"$VP" run check:changed-health
+FALLOW_AUDIT_BASE=origin/main "$VP" run check:changed-health
 
 echo "  [6/7] check:edge-budgets"
 EDGE_REPORT=$(mktemp)
